@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RPM Planner — v1</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#17202a;--muted:#667085;--line:#e4e7ec;--accent:#4f46e5;--accent2:#eef2ff;--danger:#b42318;--ok:#067647}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink)}
+header{background:#111827;color:white;padding:18px 22px;position:sticky;top:0;z-index:5}
+header .top{max-width:1100px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font-size:21px;margin:0}.sub{color:#cbd5e1;font-size:12px}
+nav{max-width:1100px;margin:14px auto 0;display:flex;gap:7px;overflow:auto}
+nav button{border:0;background:#263244;color:#dbeafe;padding:9px 12px;border-radius:9px;white-space:nowrap;cursor:pointer}
+nav button.active{background:white;color:#111827}
+main{max-width:1100px;margin:22px auto;padding:0 16px}.view{display:none}.view.active{display:block}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:17px;box-shadow:0 1px 2px #00000008}
+.c4{grid-column:span 4}.c6{grid-column:span 6}.c8{grid-column:span 8}.c12{grid-column:span 12}
+@media(max-width:760px){.c4,.c6,.c8{grid-column:span 12}}
+h2{font-size:18px;margin:0 0 12px}h3{font-size:15px;margin:0 0 7px}p{line-height:1.45}.muted{color:var(--muted);font-size:13px}
+input,textarea,select{width:100%;border:1px solid #d0d5dd;border-radius:9px;padding:10px;font:inherit;background:white}
+textarea{min-height:105px;resize:vertical}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.stack>*+*{margin-top:10px}
+button.primary,button.secondary,button.danger{border:0;border-radius:9px;padding:10px 13px;cursor:pointer;font-weight:600}
+.primary{background:var(--accent);color:#fff}.secondary{background:#eef2f6;color:#344054}.danger{background:#fee4e2;color:var(--danger)}
+.stat{font-size:30px;font-weight:700}.pill{display:inline-block;padding:4px 8px;border-radius:99px;background:#f2f4f7;font-size:12px}
+.item{border:1px solid var(--line);border-radius:11px;padding:12px;margin-top:9px;background:#fff}.item.done{opacity:.6}.item.done .title{text-decoration:line-through}
+.title{font-weight:650}.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.actions button{font-size:12px;padding:6px 8px;border-radius:7px;border:1px solid var(--line);background:white;cursor:pointer}
+label{font-size:12px;font-weight:650;color:#475467;display:block;margin-bottom:5px}
+.empty{padding:22px;text-align:center;color:var(--muted);border:1px dashed #cfd4dc;border-radius:10px}
+.notice{background:var(--accent2);border:1px solid #c7d2fe;padding:12px;border-radius:10px;font-size:13px}
+</style>
+<meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="RPM Planner">
+</head>
+<body>
+<header>
+<div class="top"><div><h1>RPM Planner</h1><div class="sub">Results → Purpose → MAP → Actions</div></div>
+<div class="row"><button class="secondary" onclick="exportData()">Export</button><button class="secondary" onclick="importData()">Import</button></div></div>
+<nav id="nav">
+<button data-view="dashboard">Dashboard</button><button data-view="capture">Quick Capture</button><button data-view="inbox">Inbox</button><button data-view="rpm">New RPM</button><button data-view="active">Active</button><button data-view="later">Later</button>
+</nav>
+</header>
+<main>
+<section id="dashboard" class="view">
+<div class="grid">
+<div class="card c4"><div class="muted">Active Results</div><div class="stat" id="sResults">0</div></div>
+<div class="card c4"><div class="muted">Open Actions</div><div class="stat" id="sActions">0</div></div>
+<div class="card c4"><div class="muted">Inbox</div><div class="stat" id="sInbox">0</div></div>
+<div class="card c8"><h2>Today's Focus</h2><div id="focus"></div></div>
+<div class="card c4"><h2>Quick Capture</h2><div class="stack"><textarea id="dashCapture" placeholder="Capture an idea, task, goal, or reminder..."></textarea><button class="primary" onclick="captureFrom('dashCapture')">Capture</button></div></div>
+</div>
+</section>
+
+<section id="capture" class="view">
+<div class="card"><h2>Quick Capture</h2><p class="muted">Don't organize it yet. Get it out of your head. You can process it later.</p>
+<textarea id="captureText" placeholder="Anything you want to remember..."></textarea><div class="row" style="margin-top:10px"><button class="primary" onclick="captureFrom('captureText')">Add to Inbox</button><button class="secondary" onclick="show('inbox')">Process Inbox</button></div></div>
+</section>
+
+<section id="inbox" class="view">
+<div class="card"><h2>Inbox</h2><p class="muted">Turn rough thoughts into Results, Actions, or Later items.</p><div id="inboxList"></div></div>
+</section>
+
+<section id="rpm" class="view">
+<div class="card">
+<h2>Create an RPM</h2>
+<div class="notice">Start with the outcome. The system will keep the “why” and the action plan connected to it.</div>
+<div class="grid" style="margin-top:14px">
+<div class="c12"><label>RESULT — What specifically do you want?</label><input id="rResult" placeholder="Example: Get the garage organized"></div>
+<div class="c12"><label>PURPOSE — Why does this matter?</label><textarea id="rPurpose" placeholder="What makes this result important?"></textarea></div>
+<div class="c12"><label>MAP — Major things that need to happen</label><textarea id="rMap" placeholder="One item per line"></textarea></div>
+<div class="c6"><label>Target date</label><input id="rDate" type="date"></div>
+<div class="c6"><label>Priority</label><select id="rPriority"><option>High</option><option selected>Normal</option><option>Low</option></select></div>
+</div>
+<div class="row" style="margin-top:14px"><button class="primary" onclick="createRPM()">Create RPM</button><button class="secondary" onclick="clearRPM()">Clear</button></div>
+</div>
+</section>
+
+<section id="active" class="view"><div class="card"><h2>Active RPMs</h2><div id="activeList"></div></div></section>
+<section id="later" class="view"><div class="card"><h2>Later / Someday</h2><p class="muted">Ideas and projects you want to keep without putting them in today's field of view.</p><div id="laterList"></div></div></section>
+
+<section id="edit" class="view"><div class="card"><h2>Edit RPM</h2><div id="editBody"></div></div></section>
+</main>
+<script>
+const KEY="rpmPlannerV1";
+let data=JSON.parse(localStorage.getItem(KEY)||'{"inbox":[],"rpms":[],"later":[]}');
+const save=()=>{localStorage.setItem(KEY,JSON.stringify(data));render()};
+function esc(s){return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function show(v){document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));document.getElementById(v).classList.add("active");document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===v));render()}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>show(b.dataset.view));
+function captureFrom(id){let el=document.getElementById(id),t=el.value.trim();if(!t)return;data.inbox.unshift({id:crypto.randomUUID(),text:t,created:new Date().toISOString()});el.value="";save();show("inbox")}
+function createRPM(){let result=document.getElementById("rResult").value.trim();if(!result){alert("Add a Result first.");return}let r={id:crypto.randomUUID(),result,purpose:document.getElementById("rPurpose").value.trim(),map:document.getElementById("rMap").value.split("\\n").map(x=>x.trim()).filter(Boolean),date:document.getElementById("rDate").value,priority:document.getElementById("rPriority").value,actions:[],created:new Date().toISOString(),status:"active"};data.rpms.unshift(r);clearRPM();save();show("active")}
+function clearRPM(){["rResult","rPurpose","rMap","rDate"].forEach(id=>document.getElementById(id).value="");document.getElementById("rPriority").value="Normal"}
+function processInbox(id,type){let i=data.inbox.findIndex(x=>x.id===id);if(i<0)return;let x=data.inbox[i];data.inbox.splice(i,1);if(type==="later")data.later.unshift({id:crypto.randomUUID(),text:x.text,created:x.created});else if(type==="action"){let r=data.rpms[0];if(!r){alert("Create an RPM first, then add this as an action.");data.inbox.push(x);return}r.actions.push({id:crypto.randomUUID(),text:x.text,done:false})}else{let r={id:crypto.randomUUID(),result:x.text,purpose:"",map:[],date:"",priority:"Normal",actions:[],created:x.created,status:"active"};data.rpms.unshift(r)}save()}
+function addAction(rid){let r=data.rpms.find(x=>x.id===rid);let t=prompt("Next action:");if(t&&t.trim()){r.actions.push({id:crypto.randomUUID(),text:t.trim(),done:false});save()}}
+function toggleAction(rid,aid){let r=data.rpms.find(x=>x.id===rid),a=r.actions.find(x=>x.id===aid);a.done=!a.done;save()}
+function laterToRPM(id){let i=data.later.findIndex(x=>x.id===id);let x=data.later.splice(i,1)[0];data.rpms.unshift({id:crypto.randomUUID(),result:x.text,purpose:"",map:[],date:"",priority:"Normal",actions:[],created:x.created,status:"active"});save();show("active")}
+function completeRPM(id){let r=data.rpms.find(x=>x.id===id);r.status="complete";save()}
+function editRPM(id){let r=data.rpms.find(x=>x.id===id);document.getElementById("editBody").innerHTML=`
+<label>RESULT</label><input id="eResult" value="${esc(r.result)}"><label>PURPOSE</label><textarea id="ePurpose">${esc(r.purpose)}</textarea>
+<label>MAP (one per line)</label><textarea id="eMap">${esc(r.map.join("\\n"))}</textarea><label>Target date</label><input id="eDate" type="date" value="${r.date||""}">
+<label>Priority</label><select id="ePriority"><option ${r.priority==="High"?"selected":""}>High</option><option ${r.priority==="Normal"?"selected":""}>Normal</option><option ${r.priority==="Low"?"selected":""}>Low</option></select>
+<div class="row" style="margin-top:12px"><button class="primary" onclick="saveEdit('${id}')">Save</button><button class="secondary" onclick="show('active')">Cancel</button></div>`;show("edit")}
+function saveEdit(id){let r=data.rpms.find(x=>x.id===id);r.result=eResult.value.trim();r.purpose=ePurpose.value.trim();r.map=eMap.value.split("\\n").map(x=>x.trim()).filter(Boolean);r.date=eDate.value;r.priority=ePriority.value;save();show("active")}
+function render(){document.getElementById("sResults").textContent=data.rpms.filter(r=>r.status==="active").length;document.getElementById("sInbox").textContent=data.inbox.length;document.getElementById("sActions").textContent=data.rpms.reduce((n,r)=>n+r.actions.filter(a=>!a.done).length,0);
+let focus=data.rpms.flatMap(r=>r.actions.filter(a=>!a.done).slice(0,2).map(a=>({r,a}))).slice(0,6);
+document.getElementById("focus").innerHTML=focus.length?focus.map(x=>`<div class="item"><div class="title">${esc(x.a.text)}</div><div class="muted">${esc(x.r.result)}</div></div>`).join(""):`<div class="empty">No open actions. Capture something or create an RPM.</div>`;
+document.getElementById("inboxList").innerHTML=data.inbox.length?data.inbox.map(x=>`<div class="item"><div class="title">${esc(x.text)}</div><div class="actions"><button onclick="processInbox('${x.id}','rpm')">Make RPM</button><button onclick="processInbox('${x.id}','action')">Make Action</button><button onclick="processInbox('${x.id}','later')">Later</button></div></div>`).join(""):`<div class="empty">Inbox is clear.</div>`;
+document.getElementById("activeList").innerHTML=data.rpms.filter(r=>r.status==="active").length?data.rpms.filter(r=>r.status==="active").map(r=>rpmCard(r)).join(""):`<div class="empty">No active RPMs yet.</div>`;
+document.getElementById("laterList").innerHTML=data.later.length?data.later.map(x=>`<div class="item"><div class="title">${esc(x.text)}</div><div class="actions"><button onclick="laterToRPM('${x.id}')">Activate as RPM</button></div></div>`).join(""):`<div class="empty">Nothing parked for later.</div>`}
+function rpmCard(r){return `<div class="item"><div class="row" style="justify-content:space-between"><div><span class="pill">${esc(r.priority)}</span> ${r.date?`<span class="pill">${esc(r.date)}</span>`:""}</div><div class="actions"><button onclick="editRPM('${r.id}')">Edit</button><button onclick="completeRPM('${r.id}')">Complete</button></div></div>
+<h3 style="margin-top:10px">${esc(r.result)}</h3><p><b>Why:</b> ${esc(r.purpose)||'<span class="muted">Not defined yet</span>'}</p>
+${r.map.length?`<p><b>MAP</b></p><ul>${r.map.map(m=>`<li>${esc(m)}</li>`).join("")}</ul>`:""}
+<p><b>Actions</b></p>${r.actions.length?r.actions.map(a=>`<div class="row" style="margin:5px 0"><input type="checkbox" style="width:auto" ${a.done?"checked":""} onchange="toggleAction('${r.id}','${a.id}')"><span class="${a.done?'muted':''}">${esc(a.text)}</span></div>`).join(""):`<div class="muted">No actions yet.</div>`}
+<button class="secondary" onclick="addAction('${r.id}')">+ Add next action</button></div>`}
+function exportData(){let blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="rpm-planner-backup.json";a.click()}
+function importData(){let i=document.createElement("input");i.type="file";i.accept=".json";i.onchange=()=>{let f=i.files[0],r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(x.inbox&&x.rpms&&x.later){data=x;save();alert("Imported successfully.")}else alert("That file is not an RPM Planner backup.")}catch(e){alert("Could not read the file.")}};r.readAsText(f)};i.click()}
+show("dashboard");
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+}
+</script>
+</body>
+</html>
